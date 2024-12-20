@@ -275,11 +275,10 @@
             submitButton.textContent = 'Sending...';
 
             try {
-                // Replace 'YOUR_API_ENDPOINT' with your actual backend API endpoint
-                const response = await fetch('YOUR_API_ENDPOINT', {
+                const response = await fetch('http://localhost:3001', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         name,
