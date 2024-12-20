@@ -1,24 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <!-- Add reCAPTCHA script -->
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <style>
-        /* Reset default margins and padding */
-        body {
-            margin: 0;
-            padding: 0;
-            background: transparent;
-        }
-
-        /* Rest of your existing contact form CSS */
+        /* Previous form styles remain the same */
         .contact-form-container {
-            width: 100%;
             max-width: 500px;
             margin: 0 auto;
             padding: 20px;
             font-family: Arial, sans-serif;
-            box-sizing: border-box;
         }
 
         .form-group {
@@ -78,8 +67,47 @@
             display: none;
         }
 
+        /* Custom CAPTCHA styles */
         .captcha-container {
             margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .captcha-challenge {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+            color: #444;
+            user-select: none;
+        }
+
+        .captcha-input {
+            width: 100%;
+            max-width: 150px;
+            margin: 10px 0;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .refresh-captcha {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+
+        .refresh-captcha:hover {
+            background-color: #5a6268;
         }
     </style>
 </head>
@@ -110,10 +138,13 @@
                 <div class="error-message" id="messageError">Please enter your message</div>
             </div>
 
-            <!-- Add reCAPTCHA -->
             <div class="captcha-container">
-                <div class="g-recaptcha" data-sitekey="YOUR_RECAPTCHA_SITE_KEY"></div>
-                <div class="error-message" id="captchaError">Please complete the CAPTCHA</div>
+                <div class="captcha-challenge" id="captchaChallenge"></div>
+                <input type="text" class="captcha-input" id="captchaInput" placeholder="Enter answer">
+                <button type="button" class="refresh-captcha" onclick="generateCaptcha()">
+                    Refresh
+                </button>
+                <div class="error-message" id="captchaError">Incorrect CAPTCHA answer</div>
             </div>
 
             <button type="submit" class="submit-button" id="submitButton">Send Message</button>
@@ -122,6 +153,65 @@
     </div>
 
     <script>
+        let captchaAnswer = null;
+
+        // Generate random math problem
+        function generateMathProblem() {
+            const operations = ['+', '-', '*'];
+            const operation = operations[Math.floor(Math.random() * operations.length)];
+            let num1, num2;
+
+            switch(operation) {
+                case '+':
+                    num1 = Math.floor(Math.random() * 20) + 1;
+                    num2 = Math.floor(Math.random() * 20) + 1;
+                    captchaAnswer = num1 + num2;
+                    break;
+                case '-':
+                    num1 = Math.floor(Math.random() * 20) + 1;
+                    num2 = Math.floor(Math.random() * num1) + 1; // Ensure positive result
+                    captchaAnswer = num1 - num2;
+                    break;
+                case '*':
+                    num1 = Math.floor(Math.random() * 10) + 1;
+                    num2 = Math.floor(Math.random() * 5) + 1;
+                    captchaAnswer = num1 * num2;
+                    break;
+            }
+
+            return `${num1} ${operation} ${num2} = ?`;
+        }
+
+        // Generate random string challenge
+        function generateStringChallenge() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluding similar-looking characters
+            let result = '';
+            for(let i = 0; i < 6; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            captchaAnswer = result;
+            return result;
+        }
+
+        // Generate CAPTCHA
+        function generateCaptcha() {
+            const captchaChallenge = document.getElementById('captchaChallenge');
+            const useMathProblem = Math.random() < 0.5; // 50% chance for each type
+
+            if (useMathProblem) {
+                captchaChallenge.textContent = generateMathProblem();
+            } else {
+                captchaChallenge.textContent = generateStringChallenge();
+            }
+
+            // Clear previous input
+            document.getElementById('captchaInput').value = '';
+            document.getElementById('captchaError').style.display = 'none';
+        }
+
+        // Initialize CAPTCHA on page load
+        generateCaptcha();
+
         document.getElementById('contactForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -135,7 +225,7 @@
             const email = document.getElementById('email').value.trim();
             const subject = document.getElementById('subject').value.trim();
             const message = document.getElementById('message').value.trim();
-            const captchaResponse = grecaptcha.getResponse();
+            const captchaInput = document.getElementById('captchaInput').value.trim();
 
             // Validate form
             let isValid = true;
@@ -161,9 +251,20 @@
             }
 
             // Validate CAPTCHA
-            if (!captchaResponse) {
-                document.getElementById('captchaError').style.display = 'block';
-                isValid = false;
+            if (typeof captchaAnswer === 'number') {
+                // For math problems
+                if (parseInt(captchaInput) !== captchaAnswer) {
+                    document.getElementById('captchaError').style.display = 'block';
+                    generateCaptcha(); // Generate new CAPTCHA
+                    isValid = false;
+                }
+            } else {
+                // For string challenges
+                if (captchaInput.toUpperCase() !== captchaAnswer) {
+                    document.getElementById('captchaError').style.display = 'block';
+                    generateCaptcha(); // Generate new CAPTCHA
+                    isValid = false;
+                }
             }
 
             if (!isValid) return;
@@ -184,17 +285,16 @@
                         name,
                         email,
                         subject,
-                        message,
-                        captchaResponse // Send CAPTCHA response to backend for verification
+                        message
                     })
                 });
 
                 if (response.ok) {
                     // Show success message
                     document.getElementById('successMessage').style.display = 'block';
-                    // Reset form and CAPTCHA
+                    // Reset form and generate new CAPTCHA
                     document.getElementById('contactForm').reset();
-                    grecaptcha.reset();
+                    generateCaptcha();
                 } else {
                     throw new Error('Failed to send message');
                 }
